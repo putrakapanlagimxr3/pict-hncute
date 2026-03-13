@@ -1,6 +1,6 @@
 const githubConfig = {
     token: "", 
-    owner: "your-github-username", // GANTI dengan username github lo
+    owner: "putrakapanlagimxr3", // GANTI dengan username github lo
     repo: "pict-hncute",
     path: "hncute_files",
     adminAvatarPath: "image-admin",
