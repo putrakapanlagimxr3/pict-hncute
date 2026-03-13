@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>pict-HnCute</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/gatekeeper.js"></script>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="js/animations.js"></script>
+    <style>
+        @font-face {
+            font-family: 'Zoika';
+            src: url('event/Zoika.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        .font-zoika { font-family: 'Zoika', serif; }
+        .shine-overlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            pointer-events: none;
+            -webkit-mask-image: url('event/logo.webp');
+            mask-image: url('event/logo.webp');
+            -webkit-mask-size: contain;
+            mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-position: center;
+        }
+        .shine-overlay::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-25deg);
+            animation: shine 3s infinite;
+        }
+        @keyframes shine {
+            0% { left: -100%; }
+            40% { left: 200%; }
+            100% { left: 200%; }
+        }
+        body {
+            background-color: #CFCB98;
+            overscroll-behavior: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false" class="h-[100dvh] w-full overflow-hidden flex flex-col items-center justify-center relative">
+
+    <div class="absolute inset-0 z-0 pointer-events-none opacity-100" style="background-image: url('event/dor.svg'); background-repeat: repeat; background-size: 500px;"></div>
+
+    <div id="main-content" class="relative z-10 flex flex-col items-center justify-center gap-4 md:gap-6 w-full px-6 max-w-7xl mx-auto">
+        <div class="gsap-reveal w-[90%] max-w-[500px] md:w-[60%] md:max-w-[700px]">
+            <div id="logo-float" class="w-full relative">
+                 <div class="shine-overlay"></div>
+                 <img src="event/logo.webp" alt="Welcome to pict-HnCute" class="w-full h-auto transition-transform hover:scale-105 duration-500">
+            </div>
+        </div>
+        <div class="gsap-reveal w-[50%] max-w-[200px] md:w-[20%] md:max-w-[250px]">
+            <div onclick="handleStart()" class="cursor-pointer block w-full transform transition-transform hover:scale-105 duration-300 active:scale-95">
+                 <img id="button-pulse" src="event/but.webp" alt="Start" class="w-full h-auto">
+            </div>
+        </div>
+    </div>
+
+    <script src="js/transitions.js"></script>
+    <script>
+        async function handleStart() {
+            const user = Auth.getUser();
+            if (!user || !user.username) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const btn = document.getElementById('button-pulse');
+            gsap.to(btn, { scale: 0.9, duration: 0.1, yoyo: true, repeat: 1 });
+
+            try {
+                const res = await fetch(`/api/hncute-payment?username=${user.username}`);
+                const data = await res.json();
+
+                if (data.config && data.config.enabled) {
+                     window.location.href = 'payment.html';
+                } else {
+                     window.location.href = 'template-selection.html';
+                }
+            } catch (e) {
+                console.error(e);
+                window.location.href = 'template-selection.html';
+            }
+        }
+
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        
+        document.addEventListener('DOMContentLoaded', () => {
+             gsap.fromTo(".gsap-reveal", 
+                 { opacity: 0, y: 30 },
+                 {
+                     duration: 1,
+                     y: 0,
+                     opacity: 1,
+                     stagger: 0.2,
+                     ease: "power3.out",
+                     delay: 0.1,
+                     onComplete: () => {
+                        gsap.to("#logo-float", {
+                            y: -15,
+                            duration: 2,
+                            repeat: -1,
+                            yoyo: true,
+                            ease: "sine.inOut"
+                        });
+                        gsap.to("#button-pulse", {
+                            scale: 1.05,
+                            duration: 0.8,
+                            repeat: -1,
+                            yoyo: true,
+                            ease: "power1.inOut"
+                        });
+                     }
+                 }
+             );
+        });
+    </script>
+</body>
+</html>
