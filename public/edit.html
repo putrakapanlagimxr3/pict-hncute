@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>pict-HnCute - Edit Foto</title>
+    
+    <script src="js/gatekeeper.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <style>
+        @font-face { font-family: 'Zoika'; src: url('event/Zoika.ttf') format('truetype'); font-display: swap; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700&display=swap');
+        body { background-color: #CFCB98; font-family: system-ui, sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+        .font-zoika { font-family: 'Zoika', serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #B2AE81; border-radius: 99px; border: 2px solid #FFFBC4; }
+        .filter-card {
+            background-color: white; border-radius: 1.5rem; display: flex; flex-direction: column; align-items: center;
+            padding: 0; cursor: pointer; transition: all 0.2s; width: 100%; aspect-ratio: 9/12;
+            overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: relative;
+        }
+        .filter-card.active { border: 6px solid #B2AE81; transform: scale(0.98); }
+        .filter-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .filter-card-image { width: 100%; height: 75%; object-fit: cover; background-color: #eee; }
+        .filter-card-text {
+            width: 100%; height: 25%; display: flex; align-items: center; justify-content: center;
+            font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; color: #FFFBC4;
+            font-size: 1.25rem; background-color: #B2AE81;
+        }
+        .filter-card.active .filter-card-text { color: #FFFBC4; }
+        .sticker-btn {
+            background: white; border-radius: 1rem; padding: 0.5rem; display: flex; align-items: center; justify-content: center;
+            border: 2px solid transparent; aspect-ratio: 1/1; cursor: pointer;
+        }
+        .sticker-btn:active { transform: scale(0.95); }
+        .sticker-btn img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .aosp-transition { transition: opacity 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); }
+        .aosp-enter { opacity: 0; transform: scale(0.95); }
+        .aosp-enter-active { opacity: 1; transform: scale(1); }
+        .aosp-exit { opacity: 1; transform: scale(1); }
+        .aosp-exit-active { opacity: 0; transform: scale(1.05); position: absolute; }
+        .btn-ripple { position: relative; overflow: hidden; }
+        .btn-ripple::after {
+            content: ""; display: block; position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            pointer-events: none; background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+            background-repeat: no-repeat; background-position: 50%; transform: scale(10, 10); opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+        .btn-ripple:active::after { transform: scale(0, 0); opacity: .3; transition: 0s; }
+        #virtual-keyboard {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(255, 251, 196, 0.95);
+            backdrop-filter: blur(10px); padding: 10px; z-index: 120; border-top: 1px solid #B2AE81;
+            display: none; flex-direction: column; gap: 5px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            transform: translateY(100%); transition: transform 0.3s ease-out;
+        }
+        #virtual-keyboard.active { display: flex; transform: translateY(0); }
+        .kb-row { display: flex; justify-content: center; gap: 5px; }
+        .kb-key {
+            background: #fff; color: #5C5A40; border: 1px solid #B2AE81; border-radius: 8px; padding: 10px;
+            min-width: 35px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 0 #B2AE81;
+            transition: transform 0.1s, box-shadow 0.1s; font-family: sans-serif; flex: 1;
+            max-width: 60px; display: flex; align-items: center; justify-content: center; height: 45px;
+        }
+        .kb-key:active { transform: translateY(2px); box-shadow: none; }
+        .kb-key.wide { flex: 1.5; max-width: 80px; }
+        .kb-key.space { flex: 4; max-width: 300px; }
+        .kb-action { background: #B2AE81; color: #FFFBC4; }
+    </style>
+</head>
+<body class="min-h-[100dvh] w-full md:h-[100dvh] md:overflow-hidden overflow-auto flex flex-col relative select-none" oncontextmenu="return false">
+
+    <div class="absolute inset-0 z-0 pointer-events-none opacity-100" style="background-image: url('event/dor.svg'); background-repeat: repeat; background-size: 500px;"></div>
+
+    <div class="relative z-10 w-full md:h-full max-w-7xl mx-auto p-4 md:p-6 flex flex-col gap-4 md:gap-6">
+        
+        <div class="flex flex-wrap md:flex-nowrap items-center justify-end gap-4 shrink-0">
+            <div class="bg-[#FFFBC4] text-[#B2AE81] px-4 py-2 rounded-xl shadow-lg flex items-center gap-2">
+                <span class="iconify text-2xl md:text-3xl opacity-80" data-icon="solar:clock-circle-outline"></span>
+                <span id="timer-display" class="font-zoika text-2xl md:text-3xl tracking-widest pt-1">1:40</span>
+            </div>
+        </div>
+
+        <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 relative md:min-h-0">
+            
+            <div class="order-2 md:order-1 md:col-span-8 bg-[#FFFBC4] rounded-[2rem] shadow-xl flex flex-col relative h-[500px] md:h-auto z-20 overflow-hidden">
+                
+                <div class="p-4 shrink-0 flex justify-center border-b border-[#B2AE81]/10 relative items-center">
+                    <button onclick="toggleTabMode('prev')" class="text-[#B2AE81] text-3xl font-bold hover:scale-110 transition-transform p-2 active:scale-90">
+                         <span class="iconify" data-icon="line-md:chevron-left-circle"></span>
+                    </button>
+                    
+                    <h2 id="tab-title" class="font-zoika text-[#B2AE81] text-2xl md:text-4xl mx-2 md:mx-4 select-none text-center">Tambahkan Filter</h2>
+                    
+                    <button onclick="toggleTabMode('next')" class="text-[#B2AE81] text-3xl font-bold hover:scale-110 transition-transform p-2 active:scale-90">
+                         <span class="iconify" data-icon="line-md:chevron-right-circle"></span>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 w-full">
+                    <div id="filter-buttons-container" class="grid grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 pb-20"></div>
+                    <div id="custom-sticker-buttons-container" class="hidden grid-cols-4 gap-3 pb-20"></div>
+                </div>
+            </div>
+
+            <div class="order-1 md:order-2 md:col-span-4 flex flex-col items-center justify-center gap-4 md:gap-6 relative z-30 shrink-0">
+                
+                <h2 class="hidden md:block font-zoika text-[#FFFBC4] text-5xl tracking-wide text-center drop-shadow-sm">Preview</h2>
+
+                <div id="photoPreview" class="relative w-full md:max-w-xs aspect-[3/4] max-h-[55vh] md:h-auto overflow-hidden flex items-center justify-center shrink-0">
+                     <div class="flex flex-col items-center justify-center p-8 rounded-xl">
+                        <span class="iconify text-5xl text-[#FFFBC4] animate-spin" data-icon="svg-spinners:90-ring-with-bg"></span>
+                     </div>
+                </div>
+
+                <button id="main-lanjut-btn" class="w-full max-w-xs mx-auto bg-[#B2AE81] text-[#FFFBC4] py-3 md:py-4 px-8 rounded-full font-zoika text-2xl md:text-3xl shadow-lg transform transition-all active:scale-95 hover:brightness-105 flex items-center justify-center gap-3 shrink-0">
+                    <span class="pt-1">Lanjut</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="done-section" class="fixed inset-0 z-50 bg-[#CFCB98] hidden flex-col items-center justify-start md:justify-center overflow-y-auto custom-scrollbar p-4 md:p-8" 
+         style="background-image: url('event/dor.svg'); background-repeat: repeat; background-size: 500px;">
+        
+        <div class="absolute top-4 right-4 z-[60]">
+             <div class="bg-[#FFFBC4] text-[#B2AE81] px-4 py-2 rounded-xl shadow-lg flex items-center gap-2">
+                <span class="iconify text-2xl md:text-3xl opacity-80" data-icon="solar:clock-circle-outline"></span>
+                <span id="done-timer-display" class="font-zoika text-2xl md:text-3xl tracking-widest pt-1">1:40</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center gap-4 md:gap-8 w-full max-w-5xl md:h-full relative min-h-min py-8 md:py-0">
+            
+            <h1 class="font-zoika text-[#FFFBC4] text-4xl md:text-6xl drop-shadow-sm shrink-0 mt-8 md:mt-0">Result</h1>
+
+            <div id="result-toggle-container" class="hidden mb-2 bg-[#B2AE81] p-1.5 rounded-full shadow-lg shrink-0 flex items-center gap-1">
+                <button onclick="toggleResultView('photo')" id="toggle-photo-btn" class="btn-ripple relative z-10 px-8 py-2.5 rounded-full font-zoika text-xl transition-all duration-300 bg-[#FFFBC4] text-[#7C7850] shadow-md">Foto</button>
+                <button onclick="toggleResultView('video')" id="toggle-video-btn" class="btn-ripple relative z-10 px-8 py-2.5 rounded-full font-zoika text-xl transition-all duration-300 text-[#FFFBC4] hover:bg-[#FFFBC4]/20">Video</button>
+            </div>
+            
+            <div class="relative transition-transform duration-300 shrink-0 md:shrink-1 w-[65vw] md:w-auto h-auto md:h-full max-h-[55vh] md:max-h-[65vh] min-h-[300px] flex items-center justify-center aspect-[3/4]">
+                 <div id="final-preview-container" class="aosp-transition h-full w-full object-contain flex items-center justify-center overflow-hidden rounded-xl absolute inset-0"></div>
+                 <div id="final-video-preview-container" class="aosp-transition h-full w-full object-contain flex items-center justify-center overflow-hidden rounded-xl absolute inset-0 opacity-0 pointer-events-none transform scale-95"></div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-3 md:gap-6 w-full max-w-xs md:max-w-xl justify-center items-center mt-2 relative z-10 shrink-0">
+                <button id="print-btn" class="w-full md:flex-1 py-3 md:py-4 bg-[#B2AE81] text-[#FFFBC4] font-zoika text-2xl md:text-3xl rounded-full shadow-xl hover:bg-[#9A966E] transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <span class="iconify" data-icon="solar:printer-bold"></span>
+                    Print
+                </button>
+                <button id="softfile-btn" class="w-full md:flex-1 py-3 md:py-4 bg-[#B2AE81] text-[#FFFBC4] font-zoika text-2xl md:text-3xl rounded-full shadow-xl hover:bg-[#9A966E] transition-all active:scale-95 flex items-center justify-center gap-2">
+                     <span class="iconify" data-icon="ph:files-duotone"></span>
+                    SoftFile
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="printerModal" class="fixed inset-0 z-[80] bg-[#FFFBC4]/90 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="modal-content w-full max-w-md p-6 md:p-8 text-center relative flex flex-col items-center bg-[#FFFBC4] rounded-[2rem] border-4 border-[#B2AE81] shadow-2xl">
+            <div class="w-20 h-20 bg-[#B2AE81] rounded-full flex items-center justify-center mb-6 shadow-md">
+                <span class="iconify text-4xl text-[#FFFBC4]" data-icon="solar:bluetooth-circle-bold"></span>
+            </div>
+            <h2 class="font-zoika text-[#B2AE81] text-3xl mb-2">Cari Printer</h2>
+            <p class="text-[#B2AE81]/80 mb-6 font-medium">Pastikan bluetooth printer aktif</p>
+            <div id="printer-status-area" class="w-full min-h-[100px] flex flex-col items-center justify-center mb-6 gap-2">
+                <p id="printer-status-text" class="text-[#B2AE81] text-lg">Siap memindai...</p>
+                <div id="printer-loading" class="hidden">
+                    <span class="iconify text-4xl text-[#B2AE81] animate-spin" data-icon="ei:spinner-3"></span>
+                </div>
+            </div>
+            <button id="scan-printer-btn" class="w-full py-3 bg-[#B2AE81] text-[#FFFBC4] font-zoika text-2xl rounded-full shadow-lg hover:brightness-105 transition-all active:scale-95 mb-3">
+                Cari Perangkat
+            </button>
+            <button onclick="hideModal('printerModal')" class="w-full py-3 border-2 border-[#B2AE81] text-[#B2AE81] font-zoika text-2xl rounded-full hover:bg-[#B2AE81] hover:text-[#FFFBC4] transition-all active:scale-95">
+                Batal
+            </button>
+        </div>
+    </div>
+
+    <div id="qrModal" class="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-content w-full max-w-md p-8 text-center relative flex flex-col items-center bg-[#FFFBC4] rounded-[2rem] border-4 border-[#B2AE81] shadow-2xl">
+            <button onclick="hideModal('qrModal')" class="absolute top-4 right-4 text-[#B2AE81] hover:text-[#7C7850] transition-colors z-10 active:scale-90">
+                <span class="iconify text-3xl" data-icon="solar:close-circle-bold"></span>
+            </button>
+            <p class="font-zoika text-[#B2AE81] text-2xl mb-6 leading-snug max-w-xs mx-auto mt-4">
+                Kamu bisa scan QR di bawah ini buat download hasil fotomu, ya!
+            </p>
+            <div class="p-4 rounded-[2rem] border-2 border-[#B2AE81] mb-6 inline-block bg-[#FFFBC4]">
+                 <div id="qrCodePopupContainer" class="bg-[#FFFBC4] p-2 rounded-xl w-[200px] h-[200px] flex items-center justify-center border-2 border-[#B2AE81]"></div>
+                 <div id="qr-progress-container" class="w-[200px] hidden flex-col justify-center h-[200px]">
+                    <div class="w-full bg-[#B2AE81]/20 rounded-full h-4 overflow-hidden mb-3">
+                        <div id="qr-progress-bar" class="h-full bg-[#B2AE81] transition-all duration-300 w-0"></div>
+                    </div>
+                    <p id="qr-progress-text" class="text-[#B2AE81] font-zoika text-xl">0%</p>
+                    <p class="text-sm text-[#B2AE81]/80 font-sans">Mengupload...</p>
+                 </div>
+            </div>
+            <button onclick="showModal('exitConfirmationModal')" class="px-12 py-3 bg-[#7C7850] text-[#FFFBC4] font-zoika text-2xl rounded-full shadow-lg hover:bg-[#9A966E] transition-all active:scale-95">
+                Back
+            </button>
+        </div>
+    </div>
+
+    <div id="exitConfirmationModal" class="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+         <div class="modal-content bg-[#FFFBC4] w-full max-w-sm rounded-[2rem] p-8 text-center shadow-2xl relative border-4 border-[#B2AE81]">
+            <h2 class="font-zoika text-[#7C7850] text-3xl mb-4">Konfirmasi</h2>
+            <p class="text-[#7C7850] text-xl mb-8 leading-relaxed font-medium font-zoika">
+                Apakah anda yakin untuk keluar dari photobooth ini?
+            </p>
+            <div class="flex gap-4 justify-center">
+                <button id="confirm-exit-btn" class="flex-1 py-3 bg-[#7C7850] text-[#FFFBC4] font-zoika text-2xl rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all">
+                    Iya
+                </button>
+                <button onclick="hideModal('exitConfirmationModal')" class="flex-1 py-3 bg-[#B2AE81] text-[#FFFBC4] font-zoika text-2xl rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all">
+                    Tidak
+                </button>
+            </div>
+         </div>
+    </div>
+
+    <div id="timeout-popup" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+         <div class="modal-content bg-[#FFFBC4] w-full max-w-sm rounded-[2rem] p-8 text-center shadow-2xl relative border-4 border-[#B2AE81]">
+            <div class="w-20 h-20 bg-[#B2AE81] rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                 <span class="iconify text-5xl text-[#FFFBC4]" data-icon="bpmn:end-event-cancel"></span>
+            </div>
+            <h2 class="font-zoika text-[#7C7850] text-3xl mb-4">Sesi Berakhir</h2>
+            <p class="text-[#7C7850] text-lg mb-4 leading-relaxed font-medium">
+                Dear user! sesi photo booth kamu udah habis, terimakasih telah menggunakan layanan dari pict-HnCute sampai jumpa di kemudian hari.
+            </p>
+            <p class="text-[#7C7850]/80 text-sm mb-8">
+                Anda akan diarahkan ke halaman utama dalam <span id="redirect-countdown" class="font-bold text-lg">5</span> detik.
+            </p>
+            <button onclick="window.triggerExit()" class="w-full h-16 bg-[#7C7850] text-[#FFFBC4] font-zoika text-2xl rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all">
+                Keluar Sekarang
+            </button>
+         </div>
+    </div>
+
+    <div id="shareSelectModal" class="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-content w-full max-w-md p-8 text-center relative flex flex-col items-center gap-6 bg-[#FFFBC4] rounded-[2rem] border-4 border-[#B2AE81] shadow-2xl">
+             <button onclick="hideModal('shareSelectModal')" class="absolute top-4 right-4 text-[#B2AE81] hover:text-[#7C7850] transition-colors"><span class="iconify text-3xl" data-icon="solar:close-circle-bold"></span></button>
+             <h2 class="font-zoika text-[#B2AE81] text-3xl">Pilih Metode</h2>
+             <div class="flex gap-4 w-full">
+                 <button onclick="hideModal('shareSelectModal'); window.startQRCode();" class="flex-1 bg-[#B2AE81] text-[#FFFBC4] p-6 rounded-2xl shadow-lg hover:brightness-105 active:scale-95 transition-all flex flex-col items-center gap-3">
+                     <span class="iconify text-5xl" data-icon="solar:qr-code-bold"></span>
+                     <span class="font-zoika text-xl">Scan QR</span>
+                 </button>
+                 <button onclick="hideModal('shareSelectModal'); window.openWAInput();" class="flex-1 bg-[#25D366] text-white p-6 rounded-2xl shadow-lg hover:brightness-105 active:scale-95 transition-all flex flex-col items-center gap-3">
+                     <span class="iconify text-5xl" data-icon="logos:whatsapp-icon"></span>
+                     <span class="font-zoika text-xl">WhatsApp</span>
+                 </button>
+             </div>
+        </div>
+    </div>
+
+    <div id="waInputModal" class="fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="modal-content w-full max-w-sm p-8 text-center relative flex flex-col items-center gap-4 bg-[#FFFBC4] rounded-[2rem] border-4 border-[#B2AE81] shadow-2xl">
+             <button onclick="hideModal('waInputModal'); toggleKeyboard(false);" class="absolute top-4 right-4 text-[#B2AE81] hover:text-[#7C7850] transition-colors"><span class="iconify text-3xl" data-icon="solar:close-circle-bold"></span></button>
+             <div class="w-16 h-16 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg mb-2">
+                 <span class="iconify text-3xl text-white" data-icon="logos:whatsapp-icon"></span>
+             </div>
+             <h2 class="font-zoika text-[#B2AE81] text-2xl">Nomor WhatsApp</h2>
+             <p class="text-[#B2AE81]/80 text-sm mb-2">Masukkan nomor (contoh: 0812...)</p>
+             <input type="text" id="wa-number-input" placeholder="08..." class="w-full p-4 rounded-xl border-2 border-[#B2AE81] bg-white text-[#5C5A40] font-bold text-center text-xl outline-none focus:border-[#7C7850]" readonly>
+             <button onclick="sendToWhatsApp()" id="btn-send-wa" class="w-full py-4 bg-[#B2AE81] text-[#FFFBC4] font-zoika text-xl rounded-xl shadow-lg hover:brightness-105 transition-all active:scale-95">
+                 Kirim Foto
+             </button>
+        </div>
+    </div>
+
+    <div id="virtual-keyboard">
+        <div class="flex justify-between items-center mb-1 px-2">
+            <span class="text-xs text-[#8C8863] font-bold">KEYBOARD</span>
+            <button onclick="toggleKeyboard(false)" class="text-[#8C8863]"><span class="iconify" data-icon="solar:minimize-square-bold"></span></button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key" onclick="kbType('1')">1</button>
+            <button class="kb-key" onclick="kbType('2')">2</button>
+            <button class="kb-key" onclick="kbType('3')">3</button>
+            <button class="kb-key" onclick="kbType('4')">4</button>
+            <button class="kb-key" onclick="kbType('5')">5</button>
+            <button class="kb-key" onclick="kbType('6')">6</button>
+            <button class="kb-key" onclick="kbType('7')">7</button>
+            <button class="kb-key" onclick="kbType('8')">8</button>
+            <button class="kb-key" onclick="kbType('9')">9</button>
+            <button class="kb-key" onclick="kbType('0')">0</button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key" onclick="kbType('Q')">Q</button>
+            <button class="kb-key" onclick="kbType('W')">W</button>
+            <button class="kb-key" onclick="kbType('E')">E</button>
+            <button class="kb-key" onclick="kbType('R')">R</button>
+            <button class="kb-key" onclick="kbType('T')">T</button>
+            <button class="kb-key" onclick="kbType('Y')">Y</button>
+            <button class="kb-key" onclick="kbType('U')">U</button>
+            <button class="kb-key" onclick="kbType('I')">I</button>
+            <button class="kb-key" onclick="kbType('O')">O</button>
+            <button class="kb-key" onclick="kbType('P')">P</button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key" onclick="kbType('A')">A</button>
+            <button class="kb-key" onclick="kbType('S')">S</button>
+            <button class="kb-key" onclick="kbType('D')">D</button>
+            <button class="kb-key" onclick="kbType('F')">F</button>
+            <button class="kb-key" onclick="kbType('G')">G</button>
+            <button class="kb-key" onclick="kbType('H')">H</button>
+            <button class="kb-key" onclick="kbType('J')">J</button>
+            <button class="kb-key" onclick="kbType('K')">K</button>
+            <button class="kb-key" onclick="kbType('L')">L</button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key wide kb-action" onclick="kbClear()"><span class="iconify" data-icon="solar:eraser-bold"></span></button>
+            <button class="kb-key" onclick="kbType('Z')">Z</button>
+            <button class="kb-key" onclick="kbType('X')">X</button>
+            <button class="kb-key" onclick="kbType('C')">C</button>
+            <button class="kb-key" onclick="kbType('V')">V</button>
+            <button class="kb-key" onclick="kbType('B')">B</button>
+            <button class="kb-key" onclick="kbType('N')">N</button>
+            <button class="kb-key" onclick="kbType('M')">M</button>
+            <button class="kb-key wide kb-action" onclick="kbBack()"><span class="iconify" data-icon="solar:backspace-bold"></span></button>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#7C7850] text-[#FFFBC4] px-6 py-3 rounded-full shadow-xl translate-y-[-150%] transition-transform duration-300 font-zoika text-sm flex items-center gap-2">
+        <span class="iconify" data-icon="solar:info-circle-bold"></span>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/camanjs/4.1.2/caman.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <script src="js/image-analyzer.js"></script>
+    <script src="js/api.git.js"></script>
+    <script src="js/edit.js"></script>
+    <script src="js/print-logic.js"></script>
+    <script src="js/animations.js"></script>
+    <script src="js/transitions.js"></script>
+    <script src="js/timer-loader.js"></script>
+
+    <script>
+        let currentTab = 'filter';
+        
+        window.switchTab = (tab) => {
+            currentTab = tab;
+            const filterContainer = document.getElementById('filter-buttons-container');
+            const stickerContainer = document.getElementById('custom-sticker-buttons-container');
+            const title = document.getElementById('tab-title');
+
+            if (tab === 'filter') {
+                filterContainer.classList.remove('hidden');
+                filterContainer.classList.add('grid');
+                stickerContainer.classList.add('hidden');
+                stickerContainer.classList.remove('grid');
+                if(title) title.textContent = "Tambahkan Filter";
+            } else {
+                filterContainer.classList.add('hidden');
+                filterContainer.classList.remove('grid');
+                stickerContainer.classList.remove('hidden');
+                stickerContainer.classList.add('grid');
+                if(title) title.textContent = "Tambahkan Sticker";
+            }
+        };
+
+        window.toggleTabMode = (direction) => {
+            if (currentTab === 'filter') {
+                window.switchTab('sticker');
+            } else {
+                window.switchTab('filter');
+            }
+        };
+
+        window.toggleResultView = (mode) => {
+            const photoBtn = document.getElementById('toggle-photo-btn');
+            const videoBtn = document.getElementById('toggle-video-btn');
+            const photoWrap = document.getElementById('final-preview-container');
+            const videoWrap = document.getElementById('final-video-preview-container');
+
+            if (mode === 'photo') {
+                photoBtn.classList.add('bg-[#FFFBC4]', 'text-[#7C7850]', 'shadow-md');
+                photoBtn.classList.remove('text-[#FFFBC4]', 'hover:bg-[#FFFBC4]/20');
+                videoBtn.classList.remove('bg-[#FFFBC4]', 'text-[#7C7850]', 'shadow-md');
+                videoBtn.classList.add('text-[#FFFBC4]', 'hover:bg-[#FFFBC4]/20');
+                
+                videoWrap.classList.remove('aosp-enter-active', 'relative', 'pointer-events-auto');
+                videoWrap.classList.add('aosp-exit-active', 'pointer-events-none');
+                
+                photoWrap.classList.remove('aosp-exit-active', 'pointer-events-none', 'transform', 'scale-95', 'opacity-0');
+                photoWrap.classList.add('aosp-enter-active', 'relative', 'pointer-events-auto');
+                
+                const vid = videoWrap.querySelector('video');
+                if(vid) setTimeout(() => vid.pause(), 300);
+            } else {
+                videoBtn.classList.add('bg-[#FFFBC4]', 'text-[#7C7850]', 'shadow-md');
+                videoBtn.classList.remove('text-[#FFFBC4]', 'hover:bg-[#FFFBC4]/20');
+                photoBtn.classList.remove('bg-[#FFFBC4]', 'text-[#7C7850]', 'shadow-md');
+                photoBtn.classList.add('text-[#FFFBC4]', 'hover:bg-[#FFFBC4]/20');
+                
+                photoWrap.classList.remove('aosp-enter-active', 'relative', 'pointer-events-auto');
+                photoWrap.classList.add('aosp-exit-active', 'pointer-events-none');
+                
+                videoWrap.classList.remove('aosp-exit-active', 'pointer-events-none', 'transform', 'scale-95', 'opacity-0');
+                videoWrap.classList.add('aosp-enter-active', 'relative', 'pointer-events-auto');
+                
+                const vid = videoWrap.querySelector('video');
+                if(vid) vid.play().catch(e => console.log(e));
+            }
+        };
+
+        window.showModal = (id) => {
+            const el = document.getElementById(id);
+            if(el) window.GSAPManager.openModal(el);
+        };
+        window.hideModal = (id) => {
+            const el = document.getElementById(id);
+            if(el) window.GSAPManager.closeModal(el);
+        };
+        
+        window.openDoneSection = () => {
+            const el = document.getElementById('done-section');
+            if (el) {
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+                gsap.fromTo(el, 
+                    { y: '100%', opacity: 0 },
+                    { y: '0%', opacity: 1, duration: 0.5, ease: "power3.out" }
+                );
+            }
+        };
+        
+        window.closeDoneSection = () => {
+             const el = document.getElementById('done-section');
+             if (el) {
+                 gsap.to(el, {
+                     y: '100%', opacity: 0, duration: 0.4, ease: "power3.in",
+                     onComplete: () => {
+                         el.classList.add('hidden');
+                         el.classList.remove('flex');
+                     }
+                 });
+             }
+        };
+        window.showToast = (msg) => {
+            const t = document.getElementById('toast');
+            if(t) window.GSAPManager.showToast(t, msg);
+        };
+
+        async function fetchShareSettings() {
+            try {
+                const user = Auth.getUser(); 
+                if (!user) return { enable_qr: true, enable_wa: false };
+                const res = await fetch(`/api/hncute-share?username=${user.username}`);
+                return await res.json();
+            } catch (e) {
+                return { enable_qr: true, enable_wa: false };
+            }
+        }
+
+        window.startQRCode = async () => {
+            window.showModal('qrModal');
+            const qrContainer = document.getElementById('qrCodePopupContainer');
+            const progressContainer = document.getElementById('qr-progress-container');
+            const progressBar = document.getElementById('qr-progress-bar');
+            const progressText = document.getElementById('qr-progress-text');
+            const progressLabel = progressContainer.querySelector('p.text-sm');
+            
+            qrContainer.innerHTML = '';
+            qrContainer.classList.add('hidden');
+            progressContainer.classList.remove('flex');
+            progressContainer.classList.remove('hidden');
+            progressContainer.classList.add('flex');
+
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+            if (progressLabel) progressLabel.textContent = 'Menyiapkan...';
+            
+            const waitingTimeout = setTimeout(() => {
+                if (progressText.textContent === '0%') {
+                        if (progressLabel) progressLabel.textContent = 'Sedang memproses video...';
+                }
+            }, 2000);
+
+            const onProgress = (pct) => {
+                clearTimeout(waitingTimeout);
+                progressBar.style.width = `${pct}%`;
+                progressText.textContent = `${pct}%`;
+                if (progressLabel) {
+                    if (pct < 20) progressLabel.textContent = 'Mengompresi Foto...';
+                    else if (pct < 50) progressLabel.textContent = 'Memproses Video...';
+                    else if (pct < 90) progressLabel.textContent = 'Mengupload ke Cloud...';
+                    else progressLabel.textContent = 'Menyimpan Data...';
+                }
+            };
+
+            try {
+                const res = await window.hncuteEditor.getUploadUrl(onProgress);
+                const url = res.url || res; 
+                
+                clearTimeout(waitingTimeout);
+                progressContainer.classList.remove('flex');
+                progressContainer.classList.add('hidden');
+                
+                qrContainer.classList.remove('hidden');
+                
+                const qr = new QRCodeStyling({
+                    width: 200, height: 200,
+                    data: url,
+                    dotsOptions: { color: "#7C7850", type: "rounded" },
+                    backgroundOptions: { color: "#FFFBC4" }
+                });
+                qr.append(qrContainer);
+                
+            } catch(e) {
+                progressContainer.innerHTML = `<p class="text-red-500 text-sm">Gagal: ${e.message}</p>`;
+            }
+        };
+
+        window.openWAInput = () => {
+            window.showModal('waInputModal');
+            document.getElementById('wa-number-input').value = '';
+            toggleKeyboard(true);
+        };
+
+        window.sendToWhatsApp = async () => {
+            const number = document.getElementById('wa-number-input').value.trim();
+            if (!number) {
+                window.showToast("Masukkan nomor WhatsApp");
+                return;
+            }
+            
+            const btn = document.getElementById('btn-send-wa');
+            btn.disabled = true; btn.textContent = "Mengirim...";
+
+            try {
+                const onProgress = (pct) => {
+                        btn.textContent = `Mengupload ${pct}%...`;
+                };
+
+                const resUpload = await window.hncuteEditor.getUploadUrl(onProgress);
+                const landingUrl = (typeof resUpload === 'string') ? resUpload : (resUpload.url || resUpload.landingUrl || resUpload);
+                
+                if (!landingUrl || typeof landingUrl !== 'string') {
+                    throw new Error("Gagal mendapatkan link download. Silakan coba lagi.");
+                }
+
+                btn.textContent = "Mengirim Pesan...";
+
+                const user = Auth.getUser();
+                const res = await fetch('/api/whatsapp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: user.username,
+                        action: 'send',
+                        target_number: number,
+                        link: landingUrl 
+                    })
+                });
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                window.showToast("Berhasil Terkirim!");
+                window.hideModal('waInputModal');
+                toggleKeyboard(false);
+
+            } catch (e) {
+                window.showToast("Gagal: " + e.message);
+            } finally {
+                btn.disabled = false; btn.textContent = "Kirim Foto";
+            }
+        };
+
+        window.toggleKeyboard = (show) => {
+            const kb = document.getElementById('virtual-keyboard');
+            const input = document.getElementById('wa-number-input');
+            if(show) {
+                    kb.classList.add('active');
+                    if(input) input.focus();
+            } else {
+                    kb.classList.remove('active');
+            }
+        };
+        window.kbType = (char) => {
+            const input = document.getElementById('wa-number-input');
+            if(input) input.value += char;
+        };
+        window.kbBack = () => {
+            const input = document.getElementById('wa-number-input');
+            if(input) input.value = input.value.slice(0, -1);
+        };
+        window.kbClear = () => {
+            const input = document.getElementById('wa-number-input');
+            if(input) input.value = '';
+        };
+        
+        const waInput = document.getElementById('wa-number-input');
+        if (waInput) {
+            waInput.addEventListener('click', () => toggleKeyboard(true));
+            waInput.addEventListener('focus', () => toggleKeyboard(true));
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+             const firebaseConfig = {
+                  apiKey: "AIzaSyD3xoMfpgP-NpReXRtNde1iLYFTscS5MrI",
+                  authDomain: "pict-hncute.firebaseapp.com",
+                  databaseURL: "https://pict-hncute-default-rtdb.firebaseio.com",
+                  projectId: "pict-hncute",
+                  storageBucket: "pict-hncute.firebasestorage.app",
+                  messagingSenderId: "212916312487",
+                  appId: "1:212916312487:web:f6b035a9e37faf4384fe82",
+                  measurementId: "G-SD0CGHYVR7"
+            };
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+            const database = firebase.database();
+
+            window.hncuteEditor = new HnCuteEditor(database);
+            window.hncuteEditor.init();
+            
+            const config = await TimerConfig.load();
+            let sessionTime = config.edit || 100;
+            const timerEl = document.getElementById('timer-display');
+            const doneTimerEl = document.getElementById('done-timer-display');
+            const timeoutPopup = document.getElementById('timeout-popup');
+            
+            const updateTimer = () => {
+                const m = Math.floor(sessionTime / 60);
+                const s = sessionTime % 60;
+                const text = `${m}:${s < 10 ? '0' : ''}${s}`;
+                if(timerEl) timerEl.textContent = text;
+                if(doneTimerEl) doneTimerEl.textContent = text;
+            };
+            
+            window.triggerExit = () => {
+                sessionStorage.clear();
+                if(window.smoothNavigate) window.smoothNavigate('index.html');
+                else window.location.href = 'index.html';
+            };
+
+            const timerInterval = setInterval(() => {
+                sessionTime--;
+                updateTimer();
+                
+                if (sessionTime <= 0) {
+                    clearInterval(timerInterval);
+                    if(timeoutPopup) {
+                        window.GSAPManager.openModal(timeoutPopup);
+                        
+                        let redirectTime = 5;
+                        const redirectEl = document.getElementById('redirect-countdown');
+                        const redirectInterval = setInterval(() => {
+                            redirectTime--;
+                            if(redirectEl) redirectEl.textContent = redirectTime;
+                            if(redirectTime <= 0) {
+                                clearInterval(redirectInterval);
+                                window.triggerExit();
+                            }
+                        }, 1000);
+                        
+                    } else {
+                         window.triggerExit();
+                    }
+                }
+            }, 1000);
+            updateTimer();
+            
+            document.getElementById('main-lanjut-btn').addEventListener('click', () => {
+                window.location.hash = 'done';
+            });
+            
+            document.getElementById('softfile-btn').addEventListener('click', async () => {
+                const settings = await fetchShareSettings();
+                
+                if (settings.enable_qr && settings.enable_wa) {
+                    window.showModal('shareSelectModal');
+                } else if (settings.enable_wa) {
+                    window.openWAInput();
+                } else {
+                    window.startQRCode();
+                }
+            });
+
+            document.getElementById('confirm-exit-btn').addEventListener('click', () => {
+                sessionStorage.clear();
+                if(window.smoothNavigate) window.smoothNavigate('index.html');
+                else window.location.href = 'index.html';
+            });
+        });
+    </script>
+</body>
+</html>

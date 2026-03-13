@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>pict-HnCute - Payment</title>
+    <script src="js/gatekeeper.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+    <script src="js/invoice-assets.js"></script>
+    <style>
+        @font-face { font-family: 'Zoika'; src: url('event/Zoika.ttf') format('truetype'); }
+        .font-zoika { font-family: 'Zoika', serif; }
+        body { background-color: #CFCB98; user-select: none; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #B2AE81; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .shine-overlay {
+            position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none;
+            -webkit-mask-image: url('event/pay.webp'); mask-image: url('event/pay.webp');
+            -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+            -webkit-mask-position: center; mask-position: center;
+        }
+        .shine-overlay::after {
+            content: ""; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-25deg); animation: shine 3s infinite;
+        }
+        @keyframes shine { 0% { left: -100%; } 40% { left: 200%; } 100% { left: 200%; } }
+        #virtual-keyboard {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(255, 251, 196, 0.95);
+            backdrop-filter: blur(10px); padding: 10px; z-index: 60; border-top: 1px solid #B2AE81;
+            display: none; flex-direction: column; gap: 5px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            transform: translateY(100%); transition: transform 0.3s ease-out;
+        }
+        #virtual-keyboard.active { display: flex; transform: translateY(0); }
+        .kb-row { display: flex; justify-content: center; gap: 5px; }
+        .kb-key {
+            background: #fff; color: #5C5A40; border: 1px solid #B2AE81; border-radius: 8px; padding: 10px;
+            min-width: 35px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 0 #B2AE81;
+            transition: transform 0.1s, box-shadow 0.1s; font-family: sans-serif; flex: 1;
+            max-width: 60px; display: flex; align-items: center; justify-content: center; height: 45px;
+        }
+        .kb-key:active { transform: translateY(2px); box-shadow: none; }
+        .kb-key.wide { flex: 1.5; max-width: 80px; }
+        .kb-key.space { flex: 4; max-width: 300px; }
+        .kb-action { background: #B2AE81; color: #FFFBC4; }
+    </style>
+</head>
+<body class="h-[100dvh] w-full flex flex-col relative overflow-hidden font-zoika">
+
+    <div class="fixed inset-0 z-0 pointer-events-none opacity-100" style="background-image: url('event/dor.svg'); background-repeat: repeat; background-size: 500px;"></div>
+
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#7C7850] text-[#FFFBC4] px-6 py-3 rounded-full shadow-xl translate-y-[-150%] transition-transform duration-300 font-zoika text-sm flex items-center gap-2 w-max max-w-[90vw]">
+        <span class="iconify shrink-0" data-icon="solar:info-circle-bold"></span>
+        <span id="toast-msg" class="truncate">Notification</span>
+    </div>
+
+    <div id="tutorial-section" class="relative z-20 w-full h-full overflow-y-auto overflow-x-hidden">
+        <button onclick="skipTutorial()" class="fixed top-4 right-4 md:top-8 md:right-8 z-50 bg-[#FFFBC4] text-[#B2AE81] w-12 h-12 md:w-24 md:h-24 flex items-center justify-center rounded-full shadow-lg hover:bg-[#F0F0E0] transition-colors group">
+            <span class="iconify text-2xl md:text-5xl scale-x-[-1]" data-icon="icon-park-solid:back"></span>
+        </button>
+
+        <div class="relative w-full flex flex-col items-center pt-8 pb-20 min-h-min">
+            
+            <div class="gsap-reveal w-[80%] max-w-[400px] md:w-[40%] md:max-w-[500px] mb-8">
+                 <div id="tutorial-logo-float" class="w-full relative">
+                     <div class="shine-overlay"></div>
+                     <img src="event/tor.webp" alt="Panduan Penggunaan" class="w-full h-auto drop-shadow-sm">
+                 </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6 md:gap-10 w-full max-w-6xl px-6 justify-center items-center">
+                
+                <div class="bg-[#B2AE81] p-8 rounded-[2rem] shadow-xl flex flex-col gap-4 items-center justify-center w-full max-w-sm aspect-square md:aspect-auto md:h-80 shrink-0">
+                    <img src="event/qrb.webp" class="w-40 h-40 object-contain drop-shadow-md">
+                    <p class="text-[#FFFBC4] font-bold text-3xl md:text-4xl font-zoika drop-shadow-md text-center">Payment</p>
+                </div>
+
+                <div class="bg-[#B2AE81] p-8 rounded-[2rem] shadow-xl flex flex-col gap-4 items-center justify-center w-full max-w-sm aspect-square md:aspect-auto md:h-80 shrink-0">
+                     <img src="event/tmp.webp" class="w-40 h-40 object-contain drop-shadow-md">
+                     <p class="text-[#FFFBC4] font-bold text-3xl md:text-4xl font-zoika drop-shadow-md text-center leading-tight">Pilih Template</p>
+                </div>
+
+                <div class="bg-[#B2AE81] p-8 rounded-[2rem] shadow-xl flex flex-col gap-4 items-center justify-center w-full max-w-sm aspect-square md:aspect-auto md:h-80 shrink-0">
+                     <img src="event/bps.webp" class="w-40 h-40 object-contain drop-shadow-md">
+                     <p class="text-[#FFFBC4] font-bold text-3xl md:text-4xl font-zoika drop-shadow-md text-center">Photo</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-payment-section" class="hidden relative z-10 w-full h-full">
+        <a href="index.html" class="absolute top-4 left-4 md:top-8 md:left-8 z-20 transition-link bg-[#FFFBC4] text-[#B2AE81] w-12 h-12 md:w-24 md:h-24 flex items-center justify-center rounded-full shadow-lg hover:bg-[#F0F0E0] transition-colors">
+            <span class="iconify text-2xl md:text-5xl" data-icon="icon-park-solid:back"></span>
+        </a>
+
+        <div class="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col items-center justify-start pt-20 md:pt-20 py-12 px-4 gap-8 custom-scrollbar">
+            
+            <div class="gsap-reveal w-[80%] max-w-[400px] md:w-[40%] md:max-w-[500px]">
+                <div id="logo-float" class="w-full relative">
+                     <div class="shine-overlay"></div>
+                     <img src="event/pay.webp" alt="pict-HnCute" class="w-full h-auto drop-shadow-sm">
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6 items-center justify-center w-full max-w-7xl">
+                
+                <button id="voucher-btn" onclick="openModal('modal-coupon')" class="gsap-reveal group relative w-full max-w-sm bg-[#B2AE81] p-8 rounded-[2rem] shadow-xl border border-[#FFFBC4]/50 flex flex-col gap-4 items-center justify-center hover:brightness-105 transition-all cursor-pointer aspect-square md:aspect-auto md:h-80">
+                    <span class="iconify text-[#FFFBC4] w-40 h-40 group-hover:rotate-12 transition-transform duration-300" data-icon="hugeicons:coupon-02"></span>
+                    <span class="text-[#FFFBC4] font-bold text-5xl tracking-widest font-zoika drop-shadow-md">VOUCHER</span>
+                </button>
+
+                <button id="qris-btn" onclick="openModal('modal-qris')" class="gsap-reveal group relative w-full max-w-sm bg-[#B2AE81] p-8 rounded-[2rem] shadow-xl border border-[#FFFBC4]/50 flex flex-col gap-4 items-center justify-center hover:brightness-105 transition-all cursor-pointer aspect-square md:aspect-auto md:h-80">
+                    <span class="iconify text-[#FFFBC4] w-40 h-40 group-hover:-rotate-12 transition-transform duration-300" data-icon="solar:qr-code-linear"></span>
+                    <span class="text-[#FFFBC4] font-bold text-5xl tracking-widest font-zoika drop-shadow-md">QRIS</span>
+                </button>
+
+                <div id="no-payment-msg" class="hidden text-center">
+                    <p class="text-[#B2AE81] font-bold text-2xl font-zoika">Payment System Offline</p>
+                    <p class="text-[#B2AE81]/70">Please contact admin.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-qris" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="bg-[#FFFBC4] rounded-[2rem] p-6 w-full max-w-[320px] shadow-2xl transform scale-95 transition-transform duration-300 relative max-h-[90vh] overflow-y-auto custom-scrollbar" id="modal-qris-content">
+             <button onclick="closeModal('modal-qris')" class="absolute top-4 right-4 text-[#B2AE81] hover:text-[#7C7850] transition-colors"><span class="iconify text-xl" data-icon="solar:close-circle-bold"></span></button>
+             
+             <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/QRIS_Logo.svg" class="h-8 mx-auto mb-4" alt="QRIS">
+             
+             <div class="flex flex-col items-center gap-4">
+                
+                <div class="bg-white/50 p-4 rounded-xl border border-[#B2AE81]/20 w-full">
+                    <div class="flex justify-between text-[#B2AE81] text-sm">
+                        <span>Service Price</span>
+                        <span id="summ-price">Rp -</span>
+                    </div>
+                    
+                    <div id="row-discount" class="flex justify-between text-green-600 text-sm mt-1 hidden">
+                        <span>Voucher</span>
+                        <span id="summ-discount">-Rp 0</span>
+                    </div>
+
+                    <div class="flex justify-between text-[#B2AE81] text-sm mt-1">
+                        <span>Admin Fee</span>
+                        <span id="summ-fee">Rp -</span>
+                    </div>
+                    <div class="border-t border-[#B2AE81]/30 my-2"></div>
+                    <div class="flex justify-between text-[#B2AE81] font-bold text-lg">
+                        <span>Total</span>
+                        <span id="summ-total">Rp -</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-2 rounded-xl shadow-inner relative w-48 h-48 flex items-center justify-center">
+                    <img id="qris-img" class="w-full h-full object-contain hidden">
+                    <div id="qris-load" class="loader"></div>
+                </div>
+
+                <div id="status-container" class="w-full text-center mb-2">
+                    <p class="text-[#B2AE81] text-xs font-bold animate-pulse">Waiting for payment...</p>
+                    <p class="text-[#B2AE81]/60 text-[10px] mt-1">Automatic check every 3s</p>
+                </div>
+
+                <button onclick="manualCheck()" id="btn-check-status" class="w-full py-3 bg-[#102A43] hover:bg-[#183654] text-white rounded-xl font-bold shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95 hidden">
+                    <span class="iconify text-lg" data-icon="solar:refresh-circle-bold"></span>
+                    <span>Check Status</span>
+                </button>
+
+                <p id="error-msg" class="text-red-500 text-xs text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-coupon" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="bg-[#FFFBC4] rounded-[2rem] p-6 w-full max-w-[320px] shadow-2xl transform scale-95 transition-transform duration-300 relative" id="modal-coupon-content">
+             <button onclick="closeModal('modal-coupon')" class="absolute top-4 right-4 text-[#B2AE81] hover:text-[#7C7850] transition-colors"><span class="iconify text-xl" data-icon="solar:close-circle-bold"></span></button>
+             
+             <h3 class="text-center text-[#B2AE81] font-zoika text-2xl mb-4">Redeem Voucher</h3>
+             
+             <div class="flex flex-col gap-3">
+                <input type="text" id="coupon-code" placeholder="ENTER COUPON CODE" class="w-full p-3 rounded-xl bg-white/50 border border-[#B2AE81] text-[#B2AE81] font-bold text-center uppercase placeholder-[#B2AE81]/40" readonly>
+                <div class="text-center text-xs text-[#B2AE81]/50 italic">Tap input to open keyboard</div>
+                <button onclick="redeemCoupon()" id="btn-redeem" class="w-full py-3 bg-[#B2AE81] text-[#FFFBC4] rounded-xl font-bold shadow-md">Redeem</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="bg-[#FFFBC4] rounded-[2rem] p-6 w-full max-w-[320px] text-center shadow-2xl transform scale-95 transition-transform duration-300 relative" id="status-modal-content">
+            <button onclick="closeStatusModal()" class="absolute top-4 right-4 text-[#B2AE81] hover:text-[#7C7850] transition-colors">
+                <span class="iconify text-xl" data-icon="solar:close-circle-bold"></span>
+            </button>
+            <div id="lottie-container" class="w-32 h-32 mx-auto mb-2 mt-4"></div>
+            <p class="text-sm text-[#B2AE81] font-medium mb-1 font-zoika">Payment Status:</p>
+            <h2 id="modal-status-text" class="text-xl font-extrabold text-[#7C7850] mb-6 font-zoika">PENDING</h2>
+        </div>
+    </div>
+
+    <div id="virtual-keyboard">
+        <div class="flex justify-between items-center mb-1 px-2">
+            <span class="text-xs text-[#8C8863] font-bold">VOUCHER KEYBOARD</span>
+            <button onclick="toggleKeyboard(false)" class="text-[#8C8863]"><span class="iconify" data-icon="solar:minimize-square-bold"></span></button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key" onclick="kbType('1')">1</button>
+            <button class="kb-key" onclick="kbType('2')">2</button>
+            <button class="kb-key" onclick="kbType('3')">3</button>
+            <button class="kb-key" onclick="kbType('4')">4</button>
+            <button class="kb-key" onclick="kbType('5')">5</button>
+            <button class="kb-key" onclick="kbType('6')">6</button>
+            <button class="kb-key" onclick="kbType('7')">7</button>
+            <button class="kb-key" onclick="kbType('8')">8</button>
+            <button class="kb-key" onclick="kbType('9')">9</button>
+            <button class="kb-key" onclick="kbType('0')">0</button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key" onclick="kbType('Q')">Q</button>
+            <button class="kb-key" onclick="kbType('W')">W</button>
+            <button class="kb-key" onclick="kbType('E')">E</button>
+            <button class="kb-key" onclick="kbType('R')">R</button>
+            <button class="kb-key" onclick="kbType('T')">T</button>
+            <button class="kb-key" onclick="kbType('Y')">Y</button>
+            <button class="kb-key" onclick="kbType('U')">U</button>
+            <button class="kb-key" onclick="kbType('I')">I</button>
+            <button class="kb-key" onclick="kbType('O')">O</button>
+            <button class="kb-key" onclick="kbType('P')">P</button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key" onclick="kbType('A')">A</button>
+            <button class="kb-key" onclick="kbType('S')">S</button>
+            <button class="kb-key" onclick="kbType('D')">D</button>
+            <button class="kb-key" onclick="kbType('F')">F</button>
+            <button class="kb-key" onclick="kbType('G')">G</button>
+            <button class="kb-key" onclick="kbType('H')">H</button>
+            <button class="kb-key" onclick="kbType('J')">J</button>
+            <button class="kb-key" onclick="kbType('K')">K</button>
+            <button class="kb-key" onclick="kbType('L')">L</button>
+        </div>
+        <div class="kb-row">
+            <button class="kb-key wide kb-action" onclick="kbClear()"><span class="iconify" data-icon="solar:eraser-bold"></span></button>
+            <button class="kb-key" onclick="kbType('Z')">Z</button>
+            <button class="kb-key" onclick="kbType('X')">X</button>
+            <button class="kb-key" onclick="kbType('C')">C</button>
+            <button class="kb-key" onclick="kbType('V')">V</button>
+            <button class="kb-key" onclick="kbType('B')">B</button>
+            <button class="kb-key" onclick="kbType('N')">N</button>
+            <button class="kb-key" onclick="kbType('M')">M</button>
+            <button class="kb-key wide kb-action" onclick="kbBack()"><span class="iconify" data-icon="solar:backspace-bold"></span></button>
+        </div>
+    </div>
+
+    <script>
+        const user = Auth.getUser();
+        let pollInterval = null;
+        let currentOrderId = null;
+        let currentAmount = 0;
+        let originalPrice = 0;
+        let appliedDiscount = 0; 
+        let lottieInstance = null;
+        let tutorialTimeout;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+             tutorialTimeout = setTimeout(skipTutorial, 10000);
+
+            gsap.fromTo(".gsap-reveal", 
+                 { opacity: 0, y: 30 },
+                 {
+                     duration: 1,
+                     y: 0,
+                     opacity: 1,
+                     stagger: 0.2,
+                     ease: "power3.out",
+                     delay: 0.1,
+                     onComplete: () => {
+                        gsap.to("#logo-float", { y: -15, duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut" });
+                        gsap.to("#tutorial-logo-float", { y: -15, duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut" });
+                     }
+                 }
+             );
+
+            if (!user) return window.location.href = 'login.html';
+
+            try {
+                const confRes = await fetch(`/api/hncute-payment?username=${user.username}`);
+                const confData = await confRes.json();
+                const config = confData.config || {};
+
+                originalPrice = config.price !== undefined ? config.price : 0;
+                
+                const qrisOn = (config.enable_qris !== undefined) ? config.enable_qris : (config.enabled || false);
+                const voucherOn = (config.enable_voucher !== undefined) ? config.enable_voucher : true;
+
+                if (!qrisOn) document.getElementById('qris-btn').classList.add('hidden');
+                if (!voucherOn) document.getElementById('voucher-btn').classList.add('hidden');
+
+                if (!qrisOn && !voucherOn) {
+                    document.getElementById('no-payment-msg').classList.remove('hidden');
+                }
+
+                if (qrisOn) {
+                    loadQR(originalPrice);
+                }
+
+            } catch(e) { console.error(e); }
+            
+            document.getElementById('coupon-code').addEventListener('focus', () => { toggleKeyboard(true); });
+            document.getElementById('coupon-code').addEventListener('click', () => { toggleKeyboard(true); });
+        });
+
+        function skipTutorial() {
+            if (tutorialTimeout) clearTimeout(tutorialTimeout);
+            const tutorial = document.getElementById('tutorial-section');
+            const main = document.getElementById('main-payment-section');
+            
+            gsap.to(tutorial, { opacity: 0, duration: 0.5, onComplete: () => {
+                tutorial.classList.add('hidden');
+                main.classList.remove('hidden');
+                gsap.fromTo(main, { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.5 });
+            }});
+        }
+
+        async function loadQR(amount) {
+            const img = document.getElementById('qris-img');
+            const loader = document.getElementById('qris-load');
+            const err = document.getElementById('error-msg');
+            const checkBtn = document.getElementById('btn-check-status');
+            
+            img.classList.add('hidden');
+            checkBtn.classList.add('hidden');
+            loader.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/qris?amount=${amount}&username=${user.username}`);
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('summ-price').textContent = `Rp ${originalPrice.toLocaleString()}`;
+                
+                if (appliedDiscount > 0) {
+                     document.getElementById('row-discount').classList.remove('hidden');
+                     document.getElementById('summ-discount').textContent = `-Rp ${appliedDiscount.toLocaleString()}`;
+                } else {
+                     document.getElementById('row-discount').classList.add('hidden');
+                }
+
+                document.getElementById('summ-fee').textContent = `Rp ${(data.fee || 0).toLocaleString()}`;
+                document.getElementById('summ-total').textContent = `Rp ${(data.total || amount).toLocaleString()}`;
+
+                img.src = data.qr_url;
+                img.onload = () => {
+                    loader.classList.add('hidden');
+                    img.classList.remove('hidden');
+                    checkBtn.classList.remove('hidden');
+
+                    if (data.order_id) {
+                        currentOrderId = data.order_id;
+                        currentAmount = data.amount; 
+                        startPolling(data.order_id, data.amount);
+                    }
+                };
+
+            } catch (e) {
+                loader.classList.add('hidden');
+                err.textContent = e.message;
+                err.classList.remove('hidden');
+            }
+        }
+
+        async function redeemCoupon() {
+            const code = document.getElementById('coupon-code').value.trim();
+            if (!code) return showToast("Enter code");
+
+            const btn = document.getElementById('btn-redeem');
+            btn.disabled = true; btn.textContent = "...";
+
+            try {
+                const checkRes = await fetch('/api/verify_payment', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ type: 'check_coupon', code, creator: user.username })
+                });
+                const checkData = await checkRes.json();
+                
+                if (!checkData.success) {
+                     showToast(checkData.error || "Invalid Coupon");
+                     btn.disabled = false; btn.textContent = "Redeem";
+                     return;
+                }
+
+                const coupon = checkData.coupon;
+
+                if (coupon.type === 'free') {
+                     const redeemRes = await fetch('/api/verify_payment', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ type: 'coupon', code, creator: user.username })
+                    });
+                    if ((await redeemRes.json()).success) {
+                        showToast("Voucher Applied! Free Access.");
+                        setTimeout(() => window.location.href = 'template-selection.html', 1500);
+                    } else {
+                        showToast("Redemption failed");
+                        btn.disabled = false; btn.textContent = "Redeem";
+                    }
+
+                } else if (coupon.type === 'discount') {
+                    const discountPercent = coupon.value || 0;
+                    appliedDiscount = Math.floor(originalPrice * (discountPercent / 100));
+                    let newTotal = originalPrice - appliedDiscount;
+                    if (newTotal < 0) newTotal = 0;
+
+                    const redeemRes = await fetch('/api/verify_payment', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ type: 'coupon', code, creator: user.username })
+                    });
+                    
+                    if ((await redeemRes.json()).success) {
+                        showToast(`Discount ${discountPercent}% Applied!`);
+                        closeModal('modal-coupon');
+                        toggleKeyboard(false);
+                        loadQR(newTotal);
+                        openModal('modal-qris');
+                    } else {
+                        showToast("Redemption failed");
+                    }
+                    btn.disabled = false; btn.textContent = "Redeem";
+                }
+
+            } catch(e) {
+                console.error(e);
+                showToast("Error processing voucher");
+                btn.disabled = false; btn.textContent = "Redeem";
+            }
+        }
+
+        async function checkPaymentStatus(orderId, baseAmount, isManual = false) {
+            try {
+                const res = await fetch('/api/verify_payment', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        type: 'qris',
+                        creator: user.username,
+                        amount: baseAmount,
+                        orderId: orderId
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    if (pollInterval) clearInterval(pollInterval);
+                    if (isManual) {
+                        updateStatusToSuccess();
+                    } else {
+                        showToast("Payment Successful!");
+                        setTimeout(() => window.location.href = 'template-selection.html', 1500);
+                    }
+                    return true;
+                } else if (isManual) {
+                    const statusText = document.getElementById('modal-status-text');
+                    statusText.textContent = (data.status || "PENDING").toUpperCase();
+                }
+            } catch(e) {
+                if (isManual) {
+                     const statusText = document.getElementById('modal-status-text');
+                     statusText.textContent = "ERROR";
+                }
+            }
+            return false;
+        }
+
+        function startPolling(orderId, baseAmount) {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => {
+                checkPaymentStatus(orderId, baseAmount, false);
+            }, 3000);
+        }
+
+        function manualCheck() {
+            if (currentOrderId) {
+                openStatusModal();
+                setTimeout(() => {
+                    checkPaymentStatus(currentOrderId, currentAmount, true);
+                }, 500);
+            }
+        }
+
+        const modalTimeouts = {};
+        function openModal(modalId) {
+            if (modalTimeouts[modalId]) { clearTimeout(modalTimeouts[modalId]); delete modalTimeouts[modalId]; }
+            const modal = document.getElementById(modalId);
+            const content = document.getElementById(modalId + '-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+        }
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            const content = document.getElementById(modalId + '-content');
+            content.classList.remove('scale-100'); content.classList.add('scale-95'); modal.classList.add('opacity-0');
+            modalTimeouts[modalId] = setTimeout(() => { modal.classList.add('hidden'); delete modalTimeouts[modalId]; }, 300);
+            if(modalId === 'modal-coupon') toggleKeyboard(false);
+        }
+
+        function openStatusModal() {
+            const modal = document.getElementById('status-modal');
+            const content = document.getElementById('status-modal-content');
+            const lottieContainer = document.getElementById('lottie-container');
+            const statusText = document.getElementById('modal-status-text');
+            statusText.textContent = "CHECKING...";
+            if (lottieInstance) lottieInstance.destroy();
+            if (typeof lottieAssets !== 'undefined') {
+                lottieInstance = lottie.loadAnimation({ container: lottieContainer, renderer: 'svg', loop: true, autoplay: true, animationData: lottieAssets.loader });
+            }
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+        }
+
+        function closeStatusModal() {
+            const modal = document.getElementById('status-modal');
+            const content = document.getElementById('status-modal-content');
+            content.classList.remove('scale-100'); content.classList.add('scale-95'); modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); if (lottieInstance) lottieInstance.destroy(); }, 300);
+        }
+
+        function updateStatusToSuccess() {
+            const statusText = document.getElementById('modal-status-text');
+            const lottieContainer = document.getElementById('lottie-container');
+            statusText.textContent = "SUCCESS!";
+            if (lottieInstance) lottieInstance.destroy();
+             if (typeof lottieAssets !== 'undefined') {
+                lottieInstance = lottie.loadAnimation({ container: lottieContainer, renderer: 'svg', loop: false, autoplay: true, animationData: lottieAssets.success });
+            }
+            setTimeout(() => { window.location.href = 'template-selection.html'; }, 2000);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast'); document.getElementById('toast-msg').textContent = msg;
+            gsap.to(t, { y: '50%', duration: 0.3, onComplete: () => { setTimeout(() => gsap.to(t, { y: '-150%', duration: 0.3 }), 2000); }});
+        }
+        
+        function toggleKeyboard(show) {
+            const kb = document.getElementById('virtual-keyboard');
+            if(show) kb.classList.add('active');
+            else kb.classList.remove('active');
+        }
+        
+        function kbType(char) {
+            const input = document.getElementById('coupon-code');
+            input.value += char;
+            input.focus();
+        }
+        
+        function kbBack() {
+             const input = document.getElementById('coupon-code');
+             input.value = input.value.slice(0, -1);
+             input.focus();
+        }
+        
+        function kbClear() {
+             const input = document.getElementById('coupon-code');
+             input.value = '';
+             input.focus();
+        }
+    </script>
+</body>
+</html>

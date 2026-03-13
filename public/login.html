@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>pict-HnCute</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/gatekeeper.js"></script>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @font-face { font-family: 'Zoika'; src: url('event/Zoika.ttf') format('truetype'); }
+        .font-zoika { font-family: 'Zoika', serif; }
+        .shine-overlay {
+            position: absolute; inset: 0; width: 100%; height: 100%; z-index: 20; pointer-events: none;
+            -webkit-mask-image: url('event/logo.webp'); mask-image: url('event/logo.webp');
+            -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+            -webkit-mask-position: center; mask-position: center;
+        }
+        .shine-overlay::after {
+            content: ""; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+            transform: skewX(-25deg); animation: shine 3s infinite;
+        }
+        @keyframes shine { 0% { left: -100%; } 40% { left: 200%; } 100% { left: 200%; } }
+        body { background-color: #CFCB98; overscroll-behavior: none; user-select: none; }
+        .input-field {
+            background-color: #FFFBC4; color: #B2AE81; border: 2px solid #FFFBC4; transition: all 0.3s;
+        }
+        .input-field:focus { border-color: #B2AE81; outline: none; }
+        .input-field::placeholder { color: #B2AE81; opacity: 0.7; }
+    </style>
+</head>
+<body oncontextmenu="return false" class="h-[100dvh] w-full overflow-hidden flex flex-col items-center justify-center relative">
+
+    <div class="absolute inset-0 z-0 pointer-events-none opacity-100" style="background-image: url('event/dor.svg'); background-repeat: repeat; background-size: 500px;"></div>
+
+    <a href="setting.html" class="absolute top-6 right-6 z-50 text-[#FFFBC4] hover:text-white transition-colors drop-shadow-md">
+        <span class="iconify text-4xl" data-icon="solar:settings-bold"></span>
+    </a>
+
+    <a href="login.html" id="backBtn" class="hidden absolute top-6 left-6 z-50 bg-[#FFFBC4] text-[#B2AE81] w-12 h-12 flex items-center justify-center rounded-full shadow-lg hover:bg-[#F0F0E0] transition-colors">
+        <span class="iconify text-2xl" data-icon="icon-park-solid:back"></span>
+    </a>
+
+    <div id="main-content" class="relative z-10 flex flex-col items-center justify-center gap-6 w-full px-6 max-w-7xl mx-auto">
+
+        <div class="gsap-reveal w-[80%] max-w-[400px] md:w-[40%] md:max-w-[500px]">
+            <div id="logo-float" class="w-full relative">
+                 <div class="shine-overlay"></div>
+                 <img src="event/logo.webp" alt="pict-HnCute" class="w-full h-auto">
+            </div>
+        </div>
+
+        <div class="gsap-reveal w-full max-w-sm bg-white/20 backdrop-blur-sm p-8 rounded-[2rem] shadow-xl border border-[#FFFBC4]/50 flex flex-col gap-4">
+            <h2 id="loginTitle" class="font-zoika text-[#FFFBC4] text-3xl text-center mb-2 drop-shadow-md">Login</h2>
+
+            <form id="loginForm" class="flex flex-col gap-4">
+                <div class="relative">
+                    <span class="iconify absolute left-4 top-1/2 -translate-y-1/2 text-[#B2AE81] text-xl" data-icon="solar:user-bold"></span>
+                    <input type="text" id="username" placeholder="Username / Email" class="input-field w-full py-3 pl-12 pr-4 rounded-xl font-bold font-zoika text-lg" required>
+                </div>
+
+                <div class="relative">
+                    <span class="iconify absolute left-4 top-1/2 -translate-y-1/2 text-[#B2AE81] text-xl" data-icon="solar:lock-password-bold"></span>
+                    <input type="password" id="password" placeholder="Password" class="input-field w-full py-3 pl-12 pr-4 rounded-xl font-bold font-zoika text-lg" required>
+                </div>
+
+                <div class="flex items-center gap-2 px-2">
+                    <input type="checkbox" id="rememberMe" class="w-5 h-5 accent-[#B2AE81] rounded focus:ring-[#B2AE81]">
+                    <label for="rememberMe" class="text-[#FFFBC4] font-bold text-sm cursor-pointer select-none">Ingat Saya</label>
+                </div>
+
+                <button type="submit" id="loginBtn" class="mt-2 w-full bg-[#B2AE81] text-[#FFFBC4] py-3 rounded-xl font-zoika text-2xl shadow-lg hover:brightness-105 active:scale-95 transition-all flex items-center justify-center">
+                    Masuk
+                </button>
+            </form>
+
+            <div class="flex flex-col items-center gap-2 mt-2">
+                <a href="https://wa.me/6281234567890?text=Hi%20admin%20saya%20tertarik%20ingin%20menggunakan%20layanan%20dari%20pict-HnCute%20bisakah%20saya%20mendapatkan%20akun%20untuk%20login?"
+                   target="_blank"
+                   class="text-[#FFFBC4] font-bold text-sm hover:underline hover:text-white transition-colors text-center">
+                    Belum punya akun? Buat sekarang
+                </a>
+            </div>
+
+            <div id="errorMsg" class="hidden text-red-500 bg-red-100/80 p-2 rounded-lg text-center font-bold text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+             const urlParams = new URLSearchParams(window.location.search);
+             const next = urlParams.get('next');
+
+             if (next && next.indexOf('setting') !== -1) {
+                 document.getElementById('loginTitle').textContent = "Login Setting";
+                 document.getElementById('backBtn').classList.remove('hidden');
+             }
+
+             gsap.fromTo(".gsap-reveal", 
+                 { opacity: 0, y: 30 },
+                 {
+                     duration: 1,
+                     y: 0,
+                     opacity: 1,
+                     stagger: 0.2,
+                     ease: "power3.out",
+                     delay: 0.1,
+                     onComplete: () => {
+                        gsap.to("#logo-float", { y: -15, duration: 2, repeat: -1, yoyo: true, ease: "sine.inOut" });
+                     }
+                 }
+             );
+
+             const form = document.getElementById('loginForm');
+             const errorMsg = document.getElementById('errorMsg');
+             const loginBtn = document.getElementById('loginBtn');
+
+             form.addEventListener('submit', async (e) => {
+                 e.preventDefault();
+                 const username = document.getElementById('username').value.trim();
+                 const password = document.getElementById('password').value.trim();
+
+                 errorMsg.classList.add('hidden');
+                 loginBtn.disabled = true;
+                 loginBtn.textContent = "Memuat...";
+
+                 const urlParams = new URLSearchParams(window.location.search);
+                 const next = urlParams.get('next');
+                 const context = (next && (next.includes('setting.html') || next === 'setting')) ? 'setting' : 'main';
+
+                 try {
+                     const res = await fetch('/api/login', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ username, password, context })
+                     });
+
+                     const data = await res.json();
+
+                     if (res.ok && data.success) {
+                         const remember = document.getElementById('rememberMe').checked;
+                         const storage = remember ? localStorage : sessionStorage;
+
+                         storage.setItem('authToken', data.token);
+                         storage.setItem('userRole', data.role);
+                         storage.setItem('userData', JSON.stringify({ username: data.username, email: data.email }));
+
+                         if (next && next !== 'index.html' && next !== 'login.html') {
+                             if (next.includes('payment.html')) {
+                                 window.location.href = 'index.html';
+                             } else {
+                                 window.location.href = decodeURIComponent(next);
+                             }
+                         } else {
+                             window.location.href = 'index.html';
+                         }
+                     } else {
+                         throw new Error(data.error || 'Login Gagal');
+                     }
+
+                 } catch (err) {
+                     errorMsg.textContent = err.message;
+                     errorMsg.classList.remove('hidden');
+                     loginBtn.disabled = false;
+                     loginBtn.textContent = "Masuk";
+                     gsap.fromTo(form, { x: -10 }, { x: 10, duration: 0.1, repeat: 3, yoyo: true, clearProps: "x" });
+                 }
+             });
+        });
+    </script>
+</body>
+</html>
