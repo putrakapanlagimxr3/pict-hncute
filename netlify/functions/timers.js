@@ -1,4 +1,6 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -12,20 +14,46 @@ exports.handler = async (event) => {
     }
 
     try {
+        const docUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/timers`;
+
         if (event.httpMethod === 'GET') {
-            const doc = await db.collection('hncute_settings').doc('timers').get();
-            const timers = doc.exists ? doc.data() : { template: 100, booth: 220, edit: 100 };
+            const response = await fetch(docUrl, {
+                headers: { 'Content-Type': 'application/json' }
+            });
             
-            return { statusCode: 200, headers, body: JSON.stringify(timers) };
+            if (response.status === 404) {
+                return { statusCode: 200, headers, body: JSON.stringify({ template: 100, booth: 220, edit: 100 }) };
+            }
+            
+            const data = await response.json();
+            const fields = data.fields || {};
+            
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    template: fields.template?.integerValue || 100,
+                    booth: fields.booth?.integerValue || 220,
+                    edit: fields.edit?.integerValue || 100
+                })
+            };
         }
         
         if (event.httpMethod === 'POST') {
             const { template, booth, edit } = JSON.parse(event.body);
             
-            await db.collection('hncute_settings').doc('timers').set({
-                template: parseInt(template),
-                booth: parseInt(booth),
-                edit: parseInt(edit)
+            const docData = {
+                fields: {
+                    template: { integerValue: parseInt(template) },
+                    booth: { integerValue: parseInt(booth) },
+                    edit: { integerValue: parseInt(edit) }
+                }
+            };
+
+            await fetch(docUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(docData)
             });
             
             return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
