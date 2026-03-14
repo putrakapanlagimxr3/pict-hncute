@@ -1,13 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
-console.log("FIREBASE_PROJECT_ID:", process.env.FIREBASE_PROJECT_ID ? "✅ ADA" : "❌ TIDAK ADA");
-console.log("FIREBASE_CLIENT_EMAIL:", process.env.FIREBASE_CLIENT_EMAIL ? "✅ ADA" : "❌ TIDAK ADA");
-console.log("FIREBASE_PRIVATE_KEY:", process.env.FIREBASE_PRIVATE_KEY ? "✅ ADA" : "❌ TIDAK ADA");
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-    try {
+// Inisialisasi Firebase Admin SDK
+try {
+    if (!admin.apps.length) {
         admin.initializeApp({
             credential: admin.credential.cert({
                 projectId: process.env.FIREBASE_PROJECT_ID,
@@ -15,9 +12,10 @@ if (!admin.apps.length) {
                 privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
             })
         });
-    } catch (e) {
-        console.error("Firebase init error:", e);
+        console.log("✅ Firebase initialized successfully");
     }
+} catch (error) {
+    console.error("❌ Firebase init error:", error);
 }
 
 const db = admin.firestore();
