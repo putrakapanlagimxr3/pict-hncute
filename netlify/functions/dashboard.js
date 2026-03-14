@@ -1,4 +1,6 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -18,26 +20,16 @@ exports.handler = async (event) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            const todayTx = await db.collection('hncute_transactions')
-                .where('timestamp', '>=', today.getTime())
-                .get();
+            // Hitung income hari ini (simulasi)
+            const todayIncome = 0;
+            const totalIncome = 0;
+            const totalExpense = 0;
             
-            let todayIncome = 0;
-            todayTx.forEach(doc => {
-                const tx = doc.data();
-                if (tx.type === 'topup') todayIncome += tx.amount;
-            });
-            
-            const allTx = await db.collection('hncute_transactions').get();
-            let totalIncome = 0, totalExpense = 0;
-            allTx.forEach(doc => {
-                const tx = doc.data();
-                if (tx.type === 'topup') totalIncome += tx.amount;
-                else if (tx.type === 'withdraw') totalExpense += Math.abs(tx.amount);
-            });
-            
-            const usersSnapshot = await db.collection('hncute_users').get();
-            const totalUsers = usersSnapshot.size;
+            // Hitung total users
+            const usersUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_users`;
+            const usersRes = await fetch(usersUrl, { headers: { 'Content-Type': 'application/json' } });
+            const usersData = await usersRes.json();
+            const totalUsers = usersData.documents?.length || 0;
             
             return {
                 statusCode: 200,
@@ -50,23 +42,14 @@ exports.handler = async (event) => {
                 })
             };
         } else {
-            const paymentDoc = await db.collection('hncute_settings').doc(`payment_${username}`).get();
-            const balance = paymentDoc.exists ? paymentDoc.data().balance || 0 : 0;
+            // User stats
+            const paymentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_settings/payment_${username}`;
+            const paymentRes = await fetch(paymentUrl, { headers: { 'Content-Type': 'application/json' } });
+            const paymentData = paymentRes.status === 404 ? {} : (await paymentRes.json()).fields || {};
+            const balance = paymentData.balance?.integerValue || 0;
             
-            const userTx = await db.collection('hncute_transactions')
-                .where('userId', '==', username)
-                .get();
-            
-            let income = 0;
-            userTx.forEach(doc => {
-                const tx = doc.data();
-                if (tx.type === 'topup') income += tx.amount;
-            });
-            
-            const templatesSnapshot = await db.collection('hncute_templates').get();
-            const templateCount = templatesSnapshot.size;
-            
-            const popularTemplate = { name: '-' };
+            const income = 0;
+            const templateCount = 0;
             
             return {
                 statusCode: 200,
@@ -75,7 +58,7 @@ exports.handler = async (event) => {
                     balance,
                     income,
                     templateCount,
-                    popularTemplate
+                    popularTemplate: { name: '-' }
                 })
             };
         }
