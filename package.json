@@ -7,10 +7,11 @@
     "build": "echo 'No build step required'"
   },
   "dependencies": {
-    "firebase-admin": "^11.11.0",
     "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
+    "cloudinary": "^1.41.0",
     "cors": "^2.8.5",
-    "cloudinary": "^1.41.0"
+    "firebase-admin": "^11.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^2.7.0"
   }
 }
