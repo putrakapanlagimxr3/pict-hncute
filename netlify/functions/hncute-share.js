@@ -1,4 +1,6 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -17,23 +19,43 @@ exports.handler = async (event) => {
     }
 
     try {
-        const docRef = db.collection('hncute_settings').doc(`share_${username}`);
-        
+        const docUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_settings/share_${username}`;
+
         if (event.httpMethod === 'GET') {
-            const doc = await docRef.get();
-            const config = doc.exists ? doc.data() : { enable_qr: true, enable_wa: false, vps_host: '', auth_token: '' };
-            return { statusCode: 200, headers, body: JSON.stringify(config) };
+            const response = await fetch(docUrl, { headers: { 'Content-Type': 'application/json' } });
+            const data = response.status === 404 ? {} : (await response.json()).fields || {};
+            
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    enable_qr: data.enable_qr?.booleanValue ?? true,
+                    enable_wa: data.enable_wa?.booleanValue ?? false,
+                    vps_host: data.vps_host?.stringValue || '',
+                    auth_token: data.auth_token?.stringValue || ''
+                })
+            };
         }
         
         if (event.httpMethod === 'POST') {
             const data = JSON.parse(event.body);
-            await docRef.set({
-                enable_qr: data.enable_qr,
-                enable_wa: data.enable_wa,
-                vps_host: data.vps_host,
-                auth_token: data.auth_token,
-                updatedAt: Date.now()
-            }, { merge: true });
+            
+            const docData = {
+                fields: {
+                    enable_qr: { booleanValue: data.enable_qr },
+                    enable_wa: { booleanValue: data.enable_wa },
+                    vps_host: { stringValue: data.vps_host || '' },
+                    auth_token: { stringValue: data.auth_token || '' },
+                    updatedAt: { integerValue: Date.now() }
+                }
+            };
+
+            await fetch(docUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(docData)
+            });
+            
             return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
         }
 
