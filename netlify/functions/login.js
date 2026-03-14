@@ -49,7 +49,7 @@ exports.handler = async (event) => {
                 username: data.email,
                 role: 'user' 
             },
-            process.env.JWT_SECRET || 'rahasiaBanget123',
+            process.env.JWT_SECRET || 'artzzyjago27',
             { expiresIn: '7d' }
         );
 
