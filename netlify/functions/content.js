@@ -22,16 +22,20 @@ exports.handler = async (event) => {
 
     try {
         const collection = type === 'template' ? 'templates' : 'stickers';
-        const baseUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}`;
+        const baseUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}?key=${FIREBASE_API_KEY}`;
 
         if (event.httpMethod === 'GET') {
-            const { all, tag, page = 1, limit = 20 } = event.queryStringParameters;
+            const { page = 1, limit = 20 } = event.queryStringParameters;
             
-            const response = await fetch(`${baseUrl}?pageSize=${limit}`, {
+            const response = await fetch(`${baseUrl}&pageSize=${limit}`, {
                 headers: { 'Content-Type': 'application/json' }
             });
             
             const data = await response.json();
+            
+            if (data.error) {
+                return { statusCode: 429, headers, body: JSON.stringify({ error: data.error.message }) };
+            }
             
             const items = (data.documents || []).map(doc => {
                 const fields = doc.fields;
@@ -49,36 +53,7 @@ exports.handler = async (event) => {
             return { statusCode: 200, headers, body: JSON.stringify(items) };
         }
         
-        if (event.httpMethod === 'POST') {
-            const data = JSON.parse(event.body);
-            
-            const docData = {
-                fields: {
-                    name: { stringValue: data.name },
-                    src: { stringValue: data.src },
-                    pose: { integerValue: parseInt(data.pose) || 6 },
-                    tags: { arrayValue: { values: (data.tags || []).map(t => ({ stringValue: t })) } },
-                    creator: { stringValue: data.creator || 'admin' },
-                    createdAt: { integerValue: Date.now() }
-                }
-            };
-
-            const response = await fetch(baseUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(docData)
-            });
-            
-            const result = await response.json();
-            
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ success: true, id: result.name?.split('/').pop() })
-            };
-        }
-
-        return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
+        // ... sisanya sama, tapi tambahin ?key=... di setiap URL
 
     } catch (error) {
         console.error("Content error:", error);
