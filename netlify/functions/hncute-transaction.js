@@ -1,4 +1,6 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -14,14 +16,31 @@ exports.handler = async (event) => {
     const { username } = event.queryStringParameters || {};
 
     try {
+        const baseUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_transactions`;
+
         if (event.httpMethod === 'GET') {
-            let query = db.collection('hncute_transactions').orderBy('timestamp', 'desc');
+            let url = baseUrl;
             if (username) {
-                query = query.where('userId', '==', username);
+                url += `?filter=userId%3D%3D"${username}"`;
             }
-            const snapshot = await query.get();
-            const transactions = [];
-            snapshot.forEach(doc => transactions.push({ id: doc.id, ...doc.data() }));
+            
+            const response = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            const data = await response.json();
+            
+            const transactions = (data.documents || []).map(doc => {
+                const fields = doc.fields;
+                return {
+                    id: doc.name.split('/').pop(),
+                    userId: fields.userId?.stringValue,
+                    type: fields.type?.stringValue,
+                    amount: fields.amount?.integerValue,
+                    method: fields.method?.stringValue,
+                    account: fields.account?.stringValue,
+                    status: fields.status?.stringValue,
+                    timestamp: fields.timestamp?.integerValue
+                };
+            });
+            
             return { statusCode: 200, headers, body: JSON.stringify(transactions) };
         }
         
@@ -29,30 +48,56 @@ exports.handler = async (event) => {
             const data = JSON.parse(event.body);
             
             const transaction = {
-                userId: data.username,
-                type: 'withdraw',
-                amount: -Math.abs(parseInt(data.amount)),
-                method: data.method,
-                account: data.account,
-                status: 'pending',
-                timestamp: Date.now()
+                fields: {
+                    userId: { stringValue: data.username },
+                    type: { stringValue: 'withdraw' },
+                    amount: { integerValue: -Math.abs(parseInt(data.amount)) },
+                    method: { stringValue: data.method },
+                    account: { stringValue: data.account },
+                    status: { stringValue: 'pending' },
+                    timestamp: { integerValue: Date.now() }
+                }
             };
-            
-            const docRef = await db.collection('hncute_transactions').add(transaction);
-            
-            const paymentRef = db.collection('hncute_settings').doc(`payment_${data.username}`);
-            await paymentRef.update({
-                balance: admin.firestore.FieldValue.increment(-Math.abs(parseInt(data.amount)))
+
+            const response = await fetch(baseUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(transaction)
             });
             
-            return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: docRef.id }) };
+            const result = await response.json();
+            
+            // Update balance
+            const paymentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_settings/payment_${data.username}`;
+            const paymentRes = await fetch(paymentUrl, { headers: { 'Content-Type': 'application/json' } });
+            const paymentData = await paymentRes.json();
+            const currentBalance = paymentData.fields?.balance?.integerValue || 0;
+            
+            const balanceData = {
+                fields: {
+                    balance: { integerValue: currentBalance - Math.abs(parseInt(data.amount)) }
+                }
+            };
+            
+            await fetch(paymentUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(balanceData)
+            });
+            
+            return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: result.name?.split('/').pop() }) };
         }
         
         if (event.httpMethod === 'PUT') {
             const data = JSON.parse(event.body);
-            await db.collection('hncute_transactions').doc(data.id).update({
-                status: data.status
+            const docUrl = `${baseUrl}/${data.id}`;
+            
+            await fetch(docUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: { status: { stringValue: data.status } } })
             });
+            
             return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
         }
 
