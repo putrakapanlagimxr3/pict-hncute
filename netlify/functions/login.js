@@ -1,24 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const admin = require('firebase-admin');
+const fetch = require('node-fetch');
 
-// Inisialisasi Firebase Admin SDK
-try {
-    if (!admin.apps.length) {
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-            })
-        });
-        console.log("✅ Firebase initialized successfully");
-    }
-} catch (error) {
-    console.error("❌ Firebase init error:", error);
-}
-
-const db = admin.firestore();
+const FIREBASE_API_KEY = "AIzaSyAgJu3ItKY8ZrFU9tg1Y3sAs28r-GAOxds";
 
 exports.handler = async (event) => {
     const headers = {
@@ -38,31 +22,34 @@ exports.handler = async (event) => {
     try {
         const { username, password } = JSON.parse(event.body);
 
-        // Cari user di collection hncute_users
-        const usersRef = db.collection('hncute_users');
-        const snapshot = await usersRef.where('username', '==', username).limit(1).get();
+        // Login ke Firebase Authentication pake REST API
+        const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: username,
+                password: password,
+                returnSecureToken: true
+            })
+        });
 
-        if (snapshot.empty) {
-            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Username atau password salah' }) };
+        const data = await response.json();
+
+        if (!response.ok) {
+            return { 
+                statusCode: 401, 
+                headers, 
+                body: JSON.stringify({ error: data.error?.message || 'Login gagal' }) 
+            };
         }
 
-        const userDoc = snapshot.docs[0];
-        const userData = userDoc.data();
-
-        // Verifikasi password
-        const valid = await bcrypt.compare(password, userData.password);
-        if (!valid) {
-            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Username atau password salah' }) };
-        }
-
-        // Generate JWT token
         const token = jwt.sign(
             { 
-                id: userDoc.id, 
-                username: userData.username, 
-                role: userData.role 
+                id: data.localId, 
+                username: data.email,
+                role: 'user' 
             },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || 'rahasiaBanget123',
             { expiresIn: '7d' }
         );
 
@@ -72,9 +59,9 @@ exports.handler = async (event) => {
             body: JSON.stringify({
                 success: true,
                 token,
-                role: userData.role,
-                username: userData.username,
-                email: userData.email
+                role: 'user',
+                username: data.email,
+                email: data.email
             })
         };
 
