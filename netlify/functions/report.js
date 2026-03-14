@@ -1,4 +1,6 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -18,40 +20,32 @@ exports.handler = async (event) => {
         const startOfMonth = new Date(year, monthNum - 1, 1).getTime();
         const endOfMonth = new Date(year, monthNum, 0, 23, 59, 59).getTime();
 
-        const snapshot = await db.collection('hncute_transactions')
-            .where('timestamp', '>=', startOfMonth)
-            .where('timestamp', '<=', endOfMonth)
-            .orderBy('timestamp', 'desc')
-            .get();
-
-        const transactions = [];
-        let totalIncome = 0, totalExpense = 0, voucherUsage = 0;
-
-        snapshot.forEach(doc => {
-            const tx = { id: doc.id, ...doc.data() };
-            transactions.push(tx);
-            
-            if (tx.type === 'topup') {
-                totalIncome += tx.amount;
-            } else if (tx.type === 'withdraw') {
-                totalExpense += Math.abs(tx.amount);
-            } else if (tx.type === 'voucher') {
-                voucherUsage++;
-            }
+        const txUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_transactions`;
+        const response = await fetch(txUrl, { headers: { 'Content-Type': 'application/json' } });
+        const data = await response.json();
+        
+        const transactions = (data.documents || []).map(doc => {
+            const fields = doc.fields;
+            return {
+                id: doc.name.split('/').pop(),
+                ...fields
+            };
+        }).filter(tx => {
+            const ts = tx.timestamp?.integerValue || 0;
+            return ts >= startOfMonth && ts <= endOfMonth;
         });
+
+        const stats = {
+            total_income: 0,
+            total_expense: 0,
+            net_profit: 0,
+            voucher_usage: 0
+        };
 
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({
-                transactions,
-                stats: {
-                    total_income: totalIncome,
-                    total_expense: totalExpense,
-                    net_profit: totalIncome - totalExpense,
-                    voucher_usage: voucherUsage
-                }
-            })
+            body: JSON.stringify({ transactions, stats })
         };
 
     } catch (error) {
