@@ -1,5 +1,7 @@
+const fetch = require('node-fetch');
 const bcrypt = require('bcryptjs');
-const { db } = require('../../firebase/admin');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -13,18 +15,22 @@ exports.handler = async (event) => {
     }
 
     try {
+        const baseUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_users`;
+
         if (event.httpMethod === 'GET') {
-            const snapshot = await db.collection('hncute_users').get();
-            const users = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                users.push({
-                    id: doc.id,
-                    username: data.username,
-                    email: data.email,
-                    role: data.role
-                });
+            const response = await fetch(baseUrl, { headers: { 'Content-Type': 'application/json' } });
+            const data = await response.json();
+            
+            const users = (data.documents || []).map(doc => {
+                const fields = doc.fields;
+                return {
+                    id: doc.name.split('/').pop(),
+                    username: fields.username?.stringValue,
+                    email: fields.email?.stringValue,
+                    role: fields.role?.stringValue || 'user'
+                };
             });
+            
             return { statusCode: 200, headers, body: JSON.stringify(users) };
         }
         
@@ -34,33 +40,51 @@ exports.handler = async (event) => {
             const hashedPassword = await bcrypt.hash(password, 10);
             
             const userData = {
-                username,
-                email,
-                password: hashedPassword,
-                role: 'user',
-                createdAt: Date.now()
+                fields: {
+                    username: { stringValue: username },
+                    email: { stringValue: email },
+                    password: { stringValue: hashedPassword },
+                    role: { stringValue: 'user' },
+                    createdAt: { integerValue: Date.now() }
+                }
+            };
+
+            const response = await fetch(baseUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData)
+            });
+            
+            const result = await response.json();
+            
+            // Create payment settings
+            const paymentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_settings/payment_${username}`;
+            const paymentData = {
+                fields: {
+                    price: { integerValue: 0 },
+                    enable_qris: { booleanValue: false },
+                    enable_voucher: { booleanValue: true },
+                    balance: { integerValue: 0 },
+                    saved_accounts: { arrayValue: { values: [] } }
+                }
             };
             
-            const docRef = await db.collection('hncute_users').add(userData);
-            
-            await db.collection('hncute_settings').doc(`payment_${username}`).set({
-                price: 0,
-                enable_qris: false,
-                enable_voucher: true,
-                balance: 0,
-                saved_accounts: []
+            await fetch(paymentUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(paymentData)
             });
             
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify({ success: true, id: docRef.id })
+                body: JSON.stringify({ success: true, id: result.name?.split('/').pop() })
             };
         }
         
         if (event.httpMethod === 'DELETE') {
             const { id } = JSON.parse(event.body);
-            await db.collection('hncute_users').doc(id).delete();
+            await fetch(`${baseUrl}/${id}`, { method: 'DELETE' });
             return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
         }
 
