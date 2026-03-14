@@ -1,4 +1,7 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_API_KEY = "AIzaSyAgJu3ItKY8ZrFU9tg1Y3sAs28r-GAOxds";
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -18,62 +21,67 @@ exports.handler = async (event) => {
     }
 
     try {
+        const collection = type === 'template' ? 'templates' : 'stickers';
+        const baseUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collection}`;
+
         if (event.httpMethod === 'GET') {
             const { all, tag, page = 1, limit = 20 } = event.queryStringParameters;
             
-            let collection = type === 'template' ? 'hncute_templates' : 'hncute_stickers';
-            let query = db.collection(collection);
-            
-            if (tag && tag !== 'All' && type === 'template') {
-                query = query.where('tags', 'array-contains', tag);
-            }
-            
-            query = query.orderBy('createdAt', 'desc');
-            
-            const startAt = (parseInt(page) - 1) * parseInt(limit);
-            const snapshot = await query.limit(parseInt(limit)).offset(startAt).get();
-            
-            const items = [];
-            snapshot.forEach(doc => {
-                items.push({ id: doc.id, ...doc.data() });
+            const response = await fetch(`${baseUrl}?pageSize=${limit}`, {
+                headers: { 'Content-Type': 'application/json' }
             });
             
+            const data = await response.json();
+            
+            const items = (data.documents || []).map(doc => {
+                const fields = doc.fields;
+                return {
+                    id: doc.name.split('/').pop(),
+                    name: fields.name?.stringValue || '',
+                    src: fields.src?.stringValue || '',
+                    pose: fields.pose?.integerValue || 6,
+                    tags: fields.tags?.arrayValue?.values?.map(v => v.stringValue) || [],
+                    creator: fields.creator?.stringValue || '',
+                    createdAt: fields.createdAt?.integerValue || 0
+                };
+            });
+
             return { statusCode: 200, headers, body: JSON.stringify(items) };
         }
         
         if (event.httpMethod === 'POST') {
             const data = JSON.parse(event.body);
-            const collection = type === 'template' ? 'hncute_templates' : 'hncute_stickers';
             
-            const docRef = await db.collection(collection).add({
-                ...data,
-                createdAt: Date.now(),
-                usageCount: 0
+            const docData = {
+                fields: {
+                    name: { stringValue: data.name },
+                    src: { stringValue: data.src },
+                    pose: { integerValue: parseInt(data.pose) || 6 },
+                    tags: { arrayValue: { values: (data.tags || []).map(t => ({ stringValue: t })) } },
+                    creator: { stringValue: data.creator || 'admin' },
+                    createdAt: { integerValue: Date.now() }
+                }
+            };
+
+            const response = await fetch(baseUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(docData)
             });
             
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ success: true, id: docRef.id })
-            };
-        }
-        
-        if (event.httpMethod === 'DELETE') {
-            const { id } = JSON.parse(event.body);
-            const collection = type === 'template' ? 'hncute_templates' : 'hncute_stickers';
-            
-            await db.collection(collection).doc(id).delete();
+            const result = await response.json();
             
             return {
                 statusCode: 200,
                 headers,
-                body: JSON.stringify({ success: true })
+                body: JSON.stringify({ success: true, id: result.name?.split('/').pop() })
             };
         }
 
         return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
     } catch (error) {
+        console.error("Content error:", error);
         return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     }
 };
