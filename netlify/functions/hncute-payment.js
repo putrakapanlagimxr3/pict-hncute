@@ -1,4 +1,6 @@
-const { db } = require('../../firebase/admin');
+const fetch = require('node-fetch');
+
+const FIREBASE_PROJECT_ID = "pict-hncute";
 
 exports.handler = async (event) => {
     const headers = {
@@ -17,15 +19,26 @@ exports.handler = async (event) => {
     }
 
     try {
-        const docRef = db.collection('hncute_settings').doc(`payment_${username}`);
-        
+        const docUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/hncute_settings/payment_${username}`;
+        const couponsUrl = `${docUrl}/coupons`;
+
         if (event.httpMethod === 'GET') {
-            const doc = await docRef.get();
-            const config = doc.exists ? doc.data() : { price: 0, enable_qris: false, enable_voucher: true, balance: 0, saved_accounts: [] };
+            const docRes = await fetch(docUrl, { headers: { 'Content-Type': 'application/json' } });
+            const config = docRes.status === 404 ? {} : (await docRes.json()).fields || {};
             
-            const couponsSnapshot = await docRef.collection('coupons').get();
-            const coupons = [];
-            couponsSnapshot.forEach(doc => coupons.push({ id: doc.id, ...doc.data() }));
+            const couponsRes = await fetch(couponsUrl, { headers: { 'Content-Type': 'application/json' } });
+            const couponsData = await couponsRes.json();
+            
+            const coupons = (couponsData.documents || []).map(doc => {
+                const fields = doc.fields;
+                return {
+                    code: doc.name.split('/').pop(),
+                    type: fields.type?.stringValue,
+                    value: fields.value?.integerValue,
+                    limit: fields.limit?.integerValue,
+                    used_count: fields.used_count?.integerValue || 0
+                };
+            });
             
             return {
                 statusCode: 200,
@@ -38,51 +51,39 @@ exports.handler = async (event) => {
             const data = JSON.parse(event.body);
             
             if (data.action === 'update_config') {
-                await docRef.set({
-                    price: parseInt(data.price) || 0,
-                    enable_qris: data.enable_qris,
-                    enable_voucher: data.enable_voucher,
-                    updatedAt: Date.now()
-                }, { merge: true });
+                const docData = {
+                    fields: {
+                        price: { integerValue: parseInt(data.price) || 0 },
+                        enable_qris: { booleanValue: data.enable_qris },
+                        enable_voucher: { booleanValue: data.enable_voucher },
+                        updatedAt: { integerValue: Date.now() }
+                    }
+                };
+                await fetch(docUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(docData) });
                 return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
             }
             
             if (data.action === 'add_coupon') {
-                await docRef.collection('coupons').doc(data.code.toUpperCase()).set({
-                    code: data.code.toUpperCase(),
-                    type: data.type,
-                    value: parseInt(data.value) || 0,
-                    limit: parseInt(data.limit) || 1,
-                    used_count: 0,
-                    createdAt: Date.now()
+                const couponData = {
+                    fields: {
+                        code: { stringValue: data.code.toUpperCase() },
+                        type: { stringValue: data.type },
+                        value: { integerValue: parseInt(data.value) || 0 },
+                        limit: { integerValue: parseInt(data.limit) || 1 },
+                        used_count: { integerValue: 0 },
+                        createdAt: { integerValue: Date.now() }
+                    }
+                };
+                await fetch(`${couponsUrl}/${data.code.toUpperCase()}`, { 
+                    method: 'PATCH', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(couponData) 
                 });
                 return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
             }
             
             if (data.action === 'delete_coupon') {
-                await docRef.collection('coupons').doc(data.code).delete();
-                return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
-            }
-            
-            if (data.action === 'add_account') {
-                const accounts = (await docRef.get()).data()?.saved_accounts || [];
-                const newAccount = {
-                    id: Date.now().toString(),
-                    type: data.type,
-                    provider: data.provider,
-                    number: data.number,
-                    name: data.name
-                };
-                accounts.push(newAccount);
-                await docRef.set({ saved_accounts: accounts }, { merge: true });
-                return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
-            }
-            
-            if (data.action === 'delete_account') {
-                const doc = await docRef.get();
-                const accounts = doc.data()?.saved_accounts || [];
-                const filtered = accounts.filter(a => a.id !== data.id);
-                await docRef.set({ saved_accounts: filtered }, { merge: true });
+                await fetch(`${couponsUrl}/${data.code}`, { method: 'DELETE' });
                 return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
             }
         }
